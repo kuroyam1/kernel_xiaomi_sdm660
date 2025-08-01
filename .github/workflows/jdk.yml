@@ -1,0 +1,65 @@
+# .github/workflows/build-temurin-android.yml
+name: Build Temurin JDK 21 for Android
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Cross-compile JDK 21 for Android
+
+    steps:
+    - name: Checkout temurin-build
+      uses: actions/checkout@v4
+      with:
+        repository: adoptium/temurin-build
+        ref: master
+        submodules: true
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential autoconf zip unzip libx11-dev libxext-dev \
+          libxrender-dev libxtst-dev libxt-dev libasound2-dev libcups2-dev \
+          libfreetype6-dev libfontconfig1-dev libxrandr-dev libxinerama-dev \
+          pkg-config ccache git wget curl python3 xz-utils \
+          libpng-dev libjpeg-dev libgif-dev libharfbuzz-dev libffi-dev
+
+    - name: Download Android NDK r25c
+      run: |
+        wget https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
+        unzip -q android-ndk-r25c-linux.zip
+        mv android-ndk-r25c $HOME/android-ndk
+
+    - name: Set environment variables
+      run: |
+        echo "ANDROID_NDK_HOME=$HOME/android-ndk" >> $GITHUB_ENV
+        echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> $GITHUB_ENV
+        echo "$JAVA_HOME/bin" >> $GITHUB_PATH
+
+    - name: Build JDK 21 for Android (aarch64)
+      run: |
+        ./makejdk-any-platform.sh jdk \
+          --version jdk21
+          --jdk-boot-dir $JAVA_HOME \
+          --build-variant normal \
+          --jdk-version 21 \
+          --architecture aarch64 \
+          --os linux \
+          --configure-args "--openjdk-target=aarch64-linux-android --with-sysroot=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
+          --make-args JOBS=4 \
+          --release \
+          --clean-libs
+
+    - name: Package to .tar.xz
+      run: |
+        BUILD_DIR=$(find ./workspace/target -type d -name "jdk-aarch64-android-*")
+        tar -cJf jdk21-android-aarch64.tar.xz -C "$BUILD_DIR" .
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: jdk21-android-aarch64
+        path: jdk21-android-aarch64.tar.xz

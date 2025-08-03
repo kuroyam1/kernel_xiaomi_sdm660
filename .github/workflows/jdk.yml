@@ -26,6 +26,9 @@ jobs:
           libfreetype6-dev libfontconfig1-dev libxrandr-dev libxinerama-dev \
           pkg-config ccache git wget curl python3 xz-utils \
           libpng-dev libjpeg-dev libgif-dev libharfbuzz-dev libffi-dev
+          git clone --depth=1 https://github.com/termux/termux-packages
+          cd termux-packages
+          ./scripts/run-docker.sh ./build-package.sh -i --format pacman openjdk-21
 
     - name: Download Android NDK r25c
       run: |
